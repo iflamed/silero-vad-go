@@ -1,7 +1,11 @@
 package speech
 
 // #cgo CFLAGS: -Wall -Werror -std=c99
-// #cgo LDFLAGS: -lonnxruntime
+// #cgo darwin CFLAGS: -I/opt/homebrew/opt/onnxruntime/include/onnxruntime
+// #cgo darwin LDFLAGS: -L/opt/homebrew/opt/onnxruntime/lib -Wl,-rpath,/opt/homebrew/opt/onnxruntime/lib -lonnxruntime
+// #cgo linux CFLAGS: -I/usr/local/include/onnxruntime -I/usr/include/onnxruntime
+// #cgo linux LDFLAGS: -L/usr/local/lib -Wl,-rpath,/usr/local/lib -lonnxruntime
+// #cgo !darwin,!linux LDFLAGS: -lonnxruntime
 // #include "ort_bridge.h"
 import "C"
 
