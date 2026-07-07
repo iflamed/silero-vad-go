@@ -13,12 +13,16 @@ import (
 
 func (sd *Detector) Infer(samples []float32) (float32, error) {
 	pcm := samples
-	if sd.currSample > 0 {
+	if sd.usesContextInput() {
+		pcm = sd.contextualSamples(samples)
+	} else if sd.currSample > 0 {
 		// Append context from previous iteration.
 		pcm = append(sd.ctx[:], samples...)
 	}
-	// Save the last contextLen samples as context for the next iteration.
-	copy(sd.ctx[:], samples[len(samples)-contextLen:])
+	if !sd.usesContextInput() {
+		// Preserve the original v5 input behavior while keeping v6 explicit.
+		copy(sd.ctx[:], samples[len(samples)-contextLen:])
+	}
 
 	// Create tensors
 	var pcmValue *C.OrtValue

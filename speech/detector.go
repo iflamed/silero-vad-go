@@ -12,12 +12,16 @@ import "C"
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"unsafe"
 )
 
 const (
-	stateLen   = 2 * 1 * 128
-	contextLen = 64
+	stateLen            = 2 * 1 * 128
+	contextLen          = 64
+	defaultModelVersion = modelVersionV5
+	modelVersionV5      = "v5"
+	modelVersionV6      = "v6"
 )
 
 type LogLevel int
@@ -50,6 +54,8 @@ const (
 type DetectorConfig struct {
 	// The path to the ONNX Silero VAD model file to load.
 	ModelPath string
+	// The Silero VAD model version. Supported values are v5 and v6. Empty means v5.
+	ModelVersion string
 	// The sampling rate of the input audio samples. Supported values are 8000 and 16000.
 	SampleRate int
 	// The probability threshold above which we detect speech. A good default is 0.5.
@@ -83,7 +89,21 @@ func (c DetectorConfig) IsValid() error {
 		return fmt.Errorf("invalid SpeechPadMs: should be a positive number")
 	}
 
+	switch c.normalizedModelVersion() {
+	case modelVersionV5, modelVersionV6:
+	default:
+		return fmt.Errorf("invalid ModelVersion: valid values are v5 and v6")
+	}
+
 	return nil
+}
+
+func (c DetectorConfig) normalizedModelVersion() string {
+	version := strings.ToLower(strings.TrimSpace(c.ModelVersion))
+	if version == "" {
+		return defaultModelVersion
+	}
+	return version
 }
 
 type Detector struct {
@@ -275,6 +295,37 @@ func (sd *Detector) Reset() error {
 
 func (sd *Detector) SetThreshold(value float32) {
 	sd.cfg.Threshold = value
+}
+
+func (sd *Detector) usesContextInput() bool {
+	return sd.cfg.normalizedModelVersion() == modelVersionV6
+}
+
+func (sd *Detector) contextSize() int {
+	if sd.cfg.SampleRate == 8000 {
+		return contextLen / 2
+	}
+	return contextLen
+}
+
+func (sd *Detector) contextualSamples(samples []float32) []float32 {
+	ctxSize := sd.contextSize()
+	pcm := make([]float32, 0, ctxSize+len(samples))
+	pcm = append(pcm, sd.ctx[:ctxSize]...)
+	pcm = append(pcm, samples...)
+	sd.saveContext(samples, ctxSize)
+	return pcm
+}
+
+func (sd *Detector) saveContext(samples []float32, ctxSize int) {
+	for i := range sd.ctx {
+		sd.ctx[i] = 0
+	}
+	if len(samples) < ctxSize {
+		copy(sd.ctx[ctxSize-len(samples):ctxSize], samples)
+		return
+	}
+	copy(sd.ctx[:ctxSize], samples[len(samples)-ctxSize:])
 }
 
 func (sd *Detector) Destroy() error {

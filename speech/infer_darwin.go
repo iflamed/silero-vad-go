@@ -11,7 +11,12 @@ import (
 	"unsafe"
 )
 
-func (sd *Detector) Infer(pcm []float32) (float32, error) {
+func (sd *Detector) Infer(samples []float32) (float32, error) {
+	pcm := samples
+	if sd.usesContextInput() {
+		pcm = sd.contextualSamples(samples)
+	}
+
 	// Create tensors
 	var pcmValue *C.OrtValue
 	pcmInputDims := []C.longlong{

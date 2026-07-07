@@ -61,6 +61,16 @@ func TestDetectorConfigIsValid(t *testing.T) {
 			err: "invalid SpeechPadMs: should be a positive number",
 		},
 		{
+			name: "invalid ModelVersion",
+			cfg: DetectorConfig{
+				ModelPath:    "../testfiles/silero_vad.onnx",
+				ModelVersion: "v7",
+				SampleRate:   16000,
+				Threshold:    0.5,
+			},
+			err: "invalid ModelVersion: valid values are v5 and v6",
+		},
+		{
 			name: "valid",
 			cfg: DetectorConfig{
 				ModelPath:  "../testfiles/silero_vad.onnx",
